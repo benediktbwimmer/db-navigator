@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+asyncpg
+python-dotenv
+pydantic
+pydantic-ai
+websockets
