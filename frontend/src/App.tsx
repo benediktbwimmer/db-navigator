@@ -26,50 +26,43 @@ const App: React.FC = () => {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
 
   const fetchSchema = async () => {
-    try {
-      const response = await fetch('/api/schema')
-      if (!response.ok) {
-        console.error('Failed to fetch schema')
-        return
-      }
-      const data = await response.json()
-      setSchema(data.schema)
-      setRowCounts(data.row_counts)
-    } catch (error) {
-      console.error('Error fetching schema:', error)
+    const response = await fetch('/api/schema')
+    if (!response.ok) {
+      throw new Error('Failed to fetch schema')
     }
+    const data = await response.json()
+    setSchema(data.schema)
+    setRowCounts(data.row_counts)
   }
 
   const generateSQL = async () => {
-    try {
-      const payload = {
-        user_request: userRequest,
-        selected_tables: schema ? Object.keys(schema.tables) : []
-      }
-      const response = await fetch('/api/generate-sql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      const data = await response.json()
-      setGeneratedSQL(data.sql_query)
-    } catch (error) {
-      console.error('Error generating SQL:', error)
+    const payload = {
+      user_request: userRequest,
+      selected_tables: schema ? Object.keys(schema.tables) : []
     }
+    const response = await fetch('/api/generate-sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!response.ok) {
+      throw new Error('Failed to generate SQL')
+    }
+    const data = await response.json()
+    setGeneratedSQL(data.sql_query)
   }
 
   const executeSQL = async () => {
-    try {
-      const response = await fetch('/api/execute-sql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: generatedSQL })
-      })
-      const data = await response.json()
-      setQueryResult(data)
-    } catch (error) {
-      console.error('Error executing SQL:', error)
+    const response = await fetch('/api/execute-sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: generatedSQL })
+    })
+    if (!response.ok) {
+      throw new Error('Failed to execute SQL')
     }
+    const data = await response.json()
+    setQueryResult(data)
   }
 
   return (
