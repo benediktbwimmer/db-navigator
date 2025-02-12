@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ConnectionInput from './components/ConnectionInput'
 import SchemaViewer from './components/SchemaViewer'
 import SQLEditor from './components/SQLEditor'
@@ -16,19 +16,41 @@ interface QueryResult {
 }
 
 const App: React.FC = () => {
-  const [connStr, setConnStr] = useState<string>(
-    import.meta.env.VITE_POSTGRES_CONN_STR || ''
-  )
+  const [connStr, setConnStr] = useState<string>('')
   const [schema, setSchema] = useState<Schema | null>(null)
   const [rowCounts, setRowCounts] = useState<{ [key: string]: number }>({})
   const [userRequest, setUserRequest] = useState<string>('')
   const [generatedSQL, setGeneratedSQL] = useState<string>('')
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
 
+  useEffect(() => {
+    // Fetch the default connection string from the backend
+    const fetchDefaultConnection = async () => {
+      try {
+        const response = await fetch('/api/connection-string')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.connection_string) {
+            setConnStr(data.connection_string)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch default connection string:', error)
+      }
+    }
+
+    fetchDefaultConnection()
+  }, [])
+
   const fetchSchema = async () => {
-    const response = await fetch('/api/schema')
+    const response = await fetch('/api/schema', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connection_string: connStr })
+    })
     if (!response.ok) {
-      throw new Error('Failed to fetch schema')
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to connect to database');
     }
     const data = await response.json()
     setSchema(data.schema)
@@ -38,7 +60,8 @@ const App: React.FC = () => {
   const generateSQL = async () => {
     const payload = {
       user_request: userRequest,
-      selected_tables: schema ? Object.keys(schema.tables) : []
+      selected_tables: schema ? Object.keys(schema.tables) : [],
+      connection_string: connStr
     }
     const response = await fetch('/api/generate-sql', {
       method: 'POST',
@@ -56,7 +79,10 @@ const App: React.FC = () => {
     const response = await fetch('/api/execute-sql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: generatedSQL })
+      body: JSON.stringify({ 
+        query: generatedSQL,
+        connection_string: connStr
+      })
     })
     if (!response.ok) {
       throw new Error('Failed to execute SQL')

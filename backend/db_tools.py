@@ -1,4 +1,3 @@
-# backend/db_tools.py
 import asyncpg
 import os
 from dotenv import load_dotenv
@@ -6,22 +5,33 @@ from dotenv import load_dotenv
 load_dotenv()
 POSTGRES_CONN_STRING = os.getenv("POSTGRES_CONN_STRING")
 
-if not POSTGRES_CONN_STRING:
-    raise ValueError("POSTGRES_CONN_STRING is not set in environment variables.")
-
-async def get_db_connection() -> asyncpg.Connection:
+async def get_db_connection(conn_str: str | None = None) -> asyncpg.Connection:
+    connection_string = conn_str or POSTGRES_CONN_STRING
+    if not connection_string:
+        raise ValueError("Database connection string is required")
+    
     try:
-        conn = await asyncpg.connect(POSTGRES_CONN_STRING)
+        conn = await asyncpg.connect(connection_string)
         return conn
+    except asyncpg.InvalidPasswordError:
+        raise ValueError("Invalid password for database user")
+    except asyncpg.InvalidCatalogNameError:
+        raise ValueError("Database does not exist")
+    except asyncpg.PostgresConnError as e:
+        if "could not translate host name" in str(e):
+            raise ValueError("Could not resolve database host")
+        elif "Connection refused" in str(e):
+            raise ValueError("Could not connect to database server. Please check if it's running and accessible")
+        raise ValueError(f"Connection error: {str(e)}")
     except Exception as e:
-        raise Exception("Failed to connect to the database: " + str(e))
+        raise ValueError(f"Failed to connect to database: {str(e)}")
 
-async def get_db_schema() -> dict:
+async def get_db_schema(conn_str: str | None = None) -> dict:
     """
     Retrieve the complete database schema from the 'public' schema.
     Returns a dictionary with a key 'tables' mapping to table names and their columns.
     """
-    conn = await get_db_connection()
+    conn = await get_db_connection(conn_str)
     try:
         tables_query = """
             SELECT table_name 
@@ -52,11 +62,11 @@ async def get_db_schema() -> dict:
     finally:
         await conn.close()
 
-async def execute_query(query: str) -> dict:
+async def execute_query(query: str, conn_str: str | None = None) -> dict:
     """
     Execute a given SQL query and return the results as a dictionary.
     """
-    conn = await get_db_connection()
+    conn = await get_db_connection(conn_str)
     try:
         records = await conn.fetch(query)
         if records:

@@ -12,11 +12,15 @@ const ConnectionInput: React.FC<ConnectionInputProps> = ({
   onFetchSchema
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFetchSchema = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       await onFetchSchema();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect to database');
     } finally {
       setIsLoading(false);
     }
@@ -31,13 +35,21 @@ const ConnectionInput: React.FC<ConnectionInputProps> = ({
         <input
           type="text"
           value={connStr}
-          onChange={(e) => onConnStrChange(e.target.value)}
+          onChange={(e) => {
+            onConnStrChange(e.target.value);
+            setError(null);
+          }}
           className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm text-gray-900 dark:text-gray-100"
           placeholder="postgresql://user:password@localhost:5432/dbname"
         />
+        {error && (
+          <div className="mt-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+            {error}
+          </div>
+        )}
         <button
           onClick={handleFetchSchema}
-          disabled={isLoading}
+          disabled={isLoading || !connStr.trim()}
           className="mt-4 w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
